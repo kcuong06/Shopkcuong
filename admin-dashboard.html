@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard - shopkcuong</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <style>
+    .tab { display: inline-block; margin: 10px; padding: 10px 20px; background: #007bff; color: white; cursor: pointer; border-radius: 5px; }
+    .tab.active { background: #0056b3; }
+    .tab-content { display: none; margin-top: 20px; }
+    .tab-content.active { display: block; }
+    .filter { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <header><h1>Trang quản trị shopkcuong</h1></header>
+  <div style="text-align:center;">
+    <div class="tab active" onclick="showTab('acc')">📦 ACC</div>
+    <div class="tab" onclick="showTab('orders')">🧾 ĐƠN HÀNG</div>
+  </div>
+
+  <div id="acc" class="tab-content active">
+    <div class="form">
+      <input id="name" placeholder="Tên acc"><br>
+      <input id="price" placeholder="Giá"><br>
+      <input id="image" placeholder="Link ảnh"><br>
+      <input id="info" placeholder="Thông tin acc"><br>
+      <button onclick="addProduct()">Thêm acc</button>
+    </div>
+    <h2>Danh sách acc</h2>
+    <div id="all-accs" class="product-list"></div>
+  </div>
+
+  <div id="orders" class="tab-content">
+    <div class="filter">
+      <label>Lọc đơn:</label>
+      <select id="filterStatus" onchange="renderOrders()">
+        <option value="all">Tất cả</option>
+        <option value="pending">Chưa thanh toán</option>
+        <option value="paid">Đã thanh toán</option>
+      </select>
+    </div>
+    <table border="1" cellspacing="0" cellpadding="10" width="100%" style="background:white;">
+      <thead>
+        <tr>
+          <th>Mã đơn</th>
+          <th>ACC</th>
+          <th>Thời gian</th>
+          <th>Trạng thái</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody id="orderTable"></tbody>
+    </table>
+  </div>
+
+  <script>
+    function showTab(id) {
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
+      document.querySelector(".tab[onclick*=\'" + id + "\']").classList.add("active");
+      document.getElementById(id).classList.add("active");
+    }
+
+    function addProduct() {
+      const name = document.getElementById("name").value;
+      const price = document.getElementById("price").value;
+      const image = document.getElementById("image").value;
+      const info = document.getElementById("info").value;
+      db.ref("products").push({ name, price, image, info, status: "available" });
+      alert("Đã thêm acc!");
+    }
+
+    function deleteProduct(id) {
+      if (confirm("Xóa acc này?")) {
+        db.ref("products/" + id).remove();
+      }
+    }
+
+    const accDiv = document.getElementById("all-accs");
+    db.ref("products").on("value", (snapshot) => {
+      accDiv.innerHTML = "";
+      snapshot.forEach((child) => {
+        const data = child.val();
+        const div = document.createElement("div");
+        div.className = "product";
+        div.innerHTML = `
+          <img src="${data.image}" />
+          <div class="info">
+            <h3>${data.name}</h3>
+            <p>${data.price}đ - <strong>${data.status}</strong></p>
+            <button onclick="deleteProduct('${child.key}')">🗑 Xóa</button>
+          </div>`;
+        accDiv.appendChild(div);
+      });
+    });
+
+    function confirmPaid(orderId, accId) {
+      if (confirm("Xác nhận thanh toán và gửi acc?")) {
+        db.ref("orders/" + orderId).once("value").then(snap => {
+          const accName = snap.val().acc;
+          db.ref("products/" + accId).once("value").then(pSnap => {
+            const info = pSnap.val().info || "Không có thông tin acc";
+            db.ref("orders/" + orderId).update({ status: "paid", sent_info: info });
+            db.ref("products/" + accId).update({ status: "sold" });
+            alert("Đã xác nhận. Thông tin acc:
+" + info);
+          });
+        });
+      }
+    }
+
+    function renderOrders() {
+      const filter = document.getElementById("filterStatus").value;
+      const table = document.getElementById("orderTable");
+      db.ref("orders").once("value", (snapshot) => {
+        table.innerHTML = "";
+        snapshot.forEach((child) => {
+          const data = child.val();
+          if (filter === "all" || data.status === filter) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${child.key}</td>
+              <td>${data.acc}</td>
+              <td>${data.time}</td>
+              <td>${data.status}</td>
+              <td>
+                ${data.status !== "paid"
+                  ? `<button onclick="confirmPaid('${child.key}', '${data.acc_id}')">Xác nhận</button>`
+                  : `<span>${data.sent_info || "Đã gửi"}</span>`}
+              </td>`;
+            table.appendChild(row);
+          }
+        });
+      });
+    }
+
+    window.onload = renderOrders;
+  </script>
+</body>
+</html>

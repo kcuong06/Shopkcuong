@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>shopkcuong - Mua acc</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="firebase.js"></script>
+  <style>
+    .modal {
+      display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: white; padding: 20px; border-radius: 8px; width: 300px; text-align: center;
+    }
+    .modal-content img { width: 80px; margin-bottom: 10px; }
+    .copy-btn {
+      margin-top: 10px;
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header><h1>shopkcuong</h1></header>
+  <nav>
+    <a href="index.html">Trang chủ</a>
+    <a href="admin.html">Admin</a>
+  </nav>
+  <h2>Danh sách tài khoản</h2>
+  <div id="product-list" class="product-list"></div>
+
+  <!-- Modal -->
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+      <img src="https://seeklogo.com/images/V/vietinbank-logo-0F8F3164B5-seeklogo.com.png" alt="VietinBank">
+      <h3>Thanh toán qua VietinBank</h3>
+      <p>Ngân hàng: <strong>VietinBank</strong></p>
+      <p>Số tài khoản:</p>
+      <div>
+        <strong id="stk">103878786764</strong><br>
+        Chủ TK: <strong>TRAN KHAC CUONG</strong>
+      </div>
+      <button class="copy-btn" onclick="copySTK()">📋 Sao chép STK</button>
+      <p>Nội dung chuyển khoản:</p>
+      <p><strong id="orderCode">ORD-...</strong></p>
+      <p>Sau khi chuyển khoản, acc sẽ được gửi Zalo</p>
+      <button onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+
+  <script>
+    const productList = document.getElementById("product-list");
+    const modal = document.getElementById("paymentModal");
+    const orderCode = document.getElementById("orderCode");
+    let selectedKey = null;
+
+    db.ref("products").on("value", (snapshot) => {
+      productList.innerHTML = "";
+      snapshot.forEach((child) => {
+        const data = child.val();
+        if (data.status !== "sold") {
+          const div = document.createElement("div");
+          div.className = "product";
+          div.innerHTML = `
+            <img src="${data.image}" />
+            <div class="info">
+              <h3>${data.name}</h3>
+              <p>${data.price}đ</p>
+              <button onclick="pay('${child.key}', '${data.name}')">Mua ngay</button>
+            </div>`;
+          productList.appendChild(div);
+        }
+      });
+    });
+
+    function pay(key, name) {
+      selectedKey = key;
+      const orderId = "ORD" + Date.now();
+      orderCode.innerText = orderId;
+
+      // Ghi đơn hàng vào Firebase
+      db.ref("orders/" + orderId).set({
+        acc: name,
+        time: new Date().toLocaleString(),
+        acc_id: key,
+        status: "pending"
+      });
+
+      modal.style.display = "flex";
+    }
+
+    function closeModal() {
+      modal.style.display = "none";
+    }
+
+    function copySTK() {
+      const stk = document.getElementById("stk").innerText;
+      navigator.clipboard.writeText(stk);
+      alert("Đã sao chép số tài khoản: " + stk);
+    }
+  </script>
+</body>
+</html>
